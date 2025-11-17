@@ -1,0 +1,4 @@
+split,num_mentions,num_pmids,num_unique_entities,num_unique_semantic_types,num_abbreviations,pct_abbreviations,avg_mention_length,avg_context_length,avg_words_per_mention,top_semantic_type,top_semantic_type_count
+TRAIN,211029,2635,25691,126,17526,8.31%,10.7,56.8,1.37,T080,18689
+VAL,71062,878,12610,124,5744,8.08%,10.7,56.9,1.37,T080,6435
+TEST,70405,879,12419,123,5922,8.41%,10.7,56.8,1.37,T080,6361
