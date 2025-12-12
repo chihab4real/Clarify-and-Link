@@ -107,8 +107,8 @@ Clarify-and-Link/
 
 ### Prerequisites
 
-- **Python**: 3.8 or higher (3.10+ recommended)
-- **GPU**: CUDA-capable GPU with 16GB+ VRAM (e.g., V100, A100, RTX 3090)
+- **Python**: 3.11+ (tested on 3.11.9)
+- **GPU**: CUDA-capable GPU with 16GB+ VRAM (tested with CUDA 11.8)
   - CPU-only mode supported but significantly slower
 - **RAM**: 16GB minimum, 32GB recommended
 - **Disk Space**: ~20GB for models and datasets
@@ -136,53 +136,28 @@ source clarify-env/bin/activate
 
 Alternatively, using conda:
 ```bash
-conda create -n clarify-env python=3.10
+conda create -n clarify-env python=3.11
 conda activate clarify-env
 ```
 
 #### 3. Install Dependencies
 
-**Option A: Install from requirements.txt (Recommended)**
+**Install from requirements.txt (Recommended)**
 ```bash
 pip install -r requirements.txt
 ```
 
-**Option B: Install manually**
-```bash
-# Core dependencies
-pip install torch torchvision transformers>=4.35.0
-pip install pandas numpy pyarrow tqdm accelerate
-pip install sentencepiece protobuf huggingface-hub
-
-# For Jupyter notebook support
-pip install jupyter notebook ipywidgets
-
-# For visualization
-pip install matplotlib seaborn plotly
-```
-
-**GPU-Specific Installation:**
-
-For CUDA 11.8:
-```bash
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
-```
-
-For CUDA 12.1:
-```bash
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-```
+The requirements.txt includes all exact versions:
+- PyTorch 2.7.1 with CUDA 11.8 support
+- Transformers 4.57.3
+- All data processing libraries (pandas, numpy, pyarrow)
+- HuggingFace Hub and utilities
+- Jupyter support for notebooks
 
 #### 4. Verify Installation
-```python
-import torch
-import transformers
-
-print(f"PyTorch version: {torch.__version__}")
-print(f"CUDA available: {torch.cuda.is_available()}")
-if torch.cuda.is_available():
-    print(f"GPU: {torch.cuda.get_device_name(0)}")
-print(f"Transformers version: {transformers.__version__}")
+```bash
+python -c "import torch; print(f'PyTorch: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}'); print(f'GPU: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else \"None\"}')"
+python -c "import transformers; print(f'Transformers: {transformers.__version__}')"
 ```
 
 #### 5. HuggingFace Authentication
@@ -192,10 +167,9 @@ Request access to Llama models:
 2. Accept the terms and conditions
 3. Generate an access token at [HuggingFace Settings](https://huggingface.co/settings/tokens)
 
-Login via Python:
-```python
-from huggingface_hub import login
-login(token='your_hf_token_here')
+Login via CLI:
+```bash
+huggingface-cli login
 ```
 
 Or set environment variable:
@@ -207,62 +181,27 @@ set HF_TOKEN=your_hf_token_here
 export HF_TOKEN=your_hf_token_here
 ```
 
-Or use CLI:
-```bash
-huggingface-cli login
-```
-
-#### 6. Download Datasets
+#### 6. Download and Prepare AIDA Dataset
 
 **AIDA-CoNLL:**
 - Download from [AIDA repository](https://www.mpi-inf.mpg.de/departments/databases-and-information-systems/research/ambiverse-nlu/aida/downloads)
-- Run preprocessing: `notebooks/Pre-processing/pre_processing(aida).ipynb`
-- Processed files will be saved to `data/processed/aida/`
-
-**MedMentions:**
-```bash
-# Clone MedMentions repository
-git clone https://github.com/chanzuckerberg/MedMentions.git temp_medmentions
-
-# Copy corpus file
-mkdir -p data/MedMentions
-cp temp_medmentions/full/data/corpus_pubtator.txt data/MedMentions/
-
-# Clean up
-rm -rf temp_medmentions
-```
-Then run preprocessing: `notebooks/Pre-processing/pre_processing(medmentions).ipynb`
-
-#### 7. Directory Setup
-```bash
-# Create necessary directories
-mkdir -p data/experiments
-mkdir -p data/experiments/clarifications_checkpoints/{train,val,test}
-mkdir -p models/t5_baseline
-mkdir -p models/t5_clarified
-```
+- Place raw AIDA files in the `AIDA/` folder
+- The preprocessing script will handle the rest
 
 ### Troubleshooting
 
 **Issue: CUDA out of memory**
-- Reduce `batch_size` in CONFIG dictionary
-- Use gradient accumulation: set `gradient_accumulation_steps=4`
+- Reduce batch size in the training script configuration
+- Use gradient accumulation steps
 - Close other GPU applications
 
 **Issue: Slow CPU training**
-- Use smaller dataset subset (set `QUICK_TEST_MODE = True`)
-- Consider cloud GPU services (Vast.ai, Google Colab, AWS)
+- Ensure CUDA is properly installed and detected
+- Consider cloud GPU services (Google Colab, AWS, Azure)
 
-**Issue: SentencePiece not found**
+**Issue: Protobuf errors**
 ```bash
-pip install sentencepiece protobuf
-# Restart Jupyter kernel after installation
-```
-
-**Issue: Symlink warnings on Windows**
-```bash
-# Run as Administrator or ignore warnings (doesn't affect functionality)
-git config core.symlinks false
+pip install -v protobuf
 ```
 
 ---
@@ -271,7 +210,7 @@ git config core.symlinks false
 
 ### Prerequisites Check
 
-Before running the experiment, ensure:
+Before running the pipeline, verify your installation:
 ```bash
 # Check installations
 python -c "import torch; print(f'PyTorch: {torch.__version__}, CUDA: {torch.cuda.is_available()}')"
@@ -279,50 +218,116 @@ python -c "import transformers; print(f'Transformers: {transformers.__version__}
 python -c "from huggingface_hub import login; print('HuggingFace Hub: OK')"
 ```
 
-### Running the Main Experiment
+### Complete Pipeline Execution
 
-The complete pipeline is in **`experiemnt1_try.ipynb`**. Open it in Jupyter:
+The Clarify-and-Link pipeline consists of **three sequential scripts** in the `Train_Scripts/` folder. All utility functions are located in `Train_Scripts/Utilities/`.
+
+#### **Script Execution Order:**
+
+#### 1️⃣ **Preprocessing** (`preprocessing.py`)
+Prepares the AIDA dataset for entity linking tasks.
 
 ```bash
-# Start Jupyter
-jupyter notebook experiemnt1_try.ipynb
+python Train_Scripts/preprocessing.py
 ```
 
-Execute cells sequentially:
+**What it does:**
+- Loads raw AIDA-CoNLL data from the `AIDA/` folder
+- Processes train/validation/test splits
+- Creates structured data with entity mentions and annotations
+- Saves preprocessed data to `AIDA/preprocessed/`
+
+**Utilities used:** `Train_Scripts/Utilities/Utils_preprocess.py`
+
+---
+
+#### 2️⃣ **Generate Clarifications** (`generate_clarifications.py`)
+Uses Llama-3.2-1B to generate contextual descriptions for entity mentions.
+
+**⚠️ IMPORTANT**: Before running, open `generate_clarifications.py` and set your HuggingFace token in the CONFIG section:
+```python
+CONFIG = {
+    ...
+    'batch_size': 32,
+    'hf_token': 'your_huggingface_token_here',  # ← SET THIS!
+}
+```
+
+```bash
+python Train_Scripts/generate_clarifications.py
+```
+
+**What it does:**
+- Loads preprocessed AIDA data
+- Initializes Llama-3.2-1B model for clarification generation
+- Generates contextual descriptions for each unique entity mention
+- Implements batching and checkpointing for efficiency
+- Saves clarifications to `AIDA/clarifications/`
+
+**Key features:**
+- Batch processing (default: 32 samples/batch)
+- Automatic checkpointing every 480 samples
+- GPU-accelerated inference
+- Deduplication of mentions (reduces API calls by ~40%)
+
+**Utilities used:** `Train_Scripts/Utilities/Utils_generate_clarifications.py`
+
+---
+
+#### 3️⃣ **Train T5 Model** (`train_t5_model.py`)
+Fine-tunes T5-base for entity linking with and without clarifications.
+
+```bash
+python Train_Scripts/train_t5_model.py
+```
+
+**What it does:**
+- Creates training datasets in T5 format (baseline + clarified versions)
+- Saves formatted data to `AIDA/experiments/t5_models/processed_for_training/`
+- Trains baseline T5 model (without clarifications)
+- Trains clarified T5 model (with LLM-generated clarifications)
+- Saves models to `experiments/t5_models/t5_baseline/` and `t5_clarified/`
+- Generates predictions on test set
+
+**Training configuration:**
+- Model: `t5-base`
+- Batch size: 8 (adjustable based on GPU memory)
+- Learning rate: 5e-5
+- Epochs: 3
+- Mixed precision (FP16) for faster training
+
+**Utilities used:** `Train_Scripts/Utilities/Utils_train_t5_model.py`
+
+---
+
+### Utility Functions (`Train_Scripts/Utilities/`)
+
+All core functionality is modularized in the Utilities folder:
+
+- **`Utils_preprocess.py`**: Data loading, parsing AIDA format, entity extraction
+- **`Utils_generate_clarifications.py`**: LLM initialization, prompt engineering, batch generation, checkpointing
+- **`Utils_train_t5_model.py`**: Dataset formatting, T5 tokenization, training loops, model evaluation
+
+### Quick Test Run
+
+To verify everything works with a small subset:
 
 ```python
-# 1. Load AIDA dataset
-df_train, df_val, df_test = load_aida_data()
-
-# 2. Generate clarifications with Llama
-model, tokenizer = load_model_and_tokenizer()
-val_clarifications = generate_clarifications_for_split(model, tokenizer, df_val, 'val')
-
-# 3. Create training datasets
-train_baseline, train_clarified = process_split_for_training(train_clarifications, 'train')
-
-# 4. Train baseline T5 model
-# See Cell 16 in experiemnt1_try.ipynb
-
-# 5. Train clarified T5 model
-# Compare performance improvements
+# Edit generate_clarifications.py
+QUICK_TEST = True  # Process only 100 samples
+BATCH_SIZE = 16    # Smaller batch for testing
 ```
 
-### Processing Your Own Data
+Then run the three scripts in order.
 
-```python
-from Utils import *
+---
 
-# Load and preprocess data
-df = your_data_loading_function()
+### Alternative: Jupyter Notebook Workflow
 
-# Generate clarifications
-model, tokenizer = load_model_and_tokenizer()
-clarifications = generate_clarifications_for_split(model, tokenizer, df, 'custom')
-
-# Create training samples
-samples = create_training_samples(clarifications[0], use_clarifications=True)
-```
+For interactive exploration, use the notebooks:
+- **Preprocessing**: `notebooks/Pre-processing/pre_processing(aida).ipynb`
+- **Analysis**: `notebooks/Analysis/aida_analysis.ipynb`
+- **Full Experiment**: `experiemnt1_try.ipynb` (contains the complete pipeline)
 
 ---
 
