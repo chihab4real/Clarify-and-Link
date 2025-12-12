@@ -245,7 +245,7 @@ python Train_Scripts/preprocessing.py
 #### 2️⃣ **Generate Clarifications** (`generate_clarifications.py`)
 Uses Llama-3.2-1B to generate contextual descriptions for entity mentions.
 
-**⚠️ IMPORTANT**: Before running, open `generate_clarifications.py` and set your HuggingFace token in the CONFIG section:
+**⚠️ IMPORTANT**: Before running, open `generate_clarifications.py` and `Utilities/Utils_generate_clarifications.py` and set your HuggingFace token in the CONFIG section:
 ```python
 CONFIG = {
     ...
